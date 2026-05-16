@@ -21,20 +21,19 @@ export async function GET(request) {
     `
     const params = []
     
-    if (status) { sql += ' AND bp.status = ?'; params.push(status) }
-    else { sql += " AND bp.status = 'published'" }
+    if (status && status !== 'all') { sql += ' AND bp.status = ?'; params.push(status) }
     if (categoryId) { sql += ' AND bp.category_id = ?'; params.push(categoryId) }
     
     const countSql = sql.replace('SELECT bp.*, bc.name as category_name, u.name as author_name', 'SELECT COUNT(*) as total')
     const countResult = await query(countSql, params)
     const total = countResult[0].total
     
-    sql += ' ORDER BY bp.published_at DESC, bp.created_at DESC LIMIT ? OFFSET ?'
-    params.push(limit, offset)
+    sql += ` ORDER BY bp.published_at DESC, bp.created_at DESC LIMIT ${limit} OFFSET ${offset}`
     
     const posts = await query(sql, params)
     return NextResponse.json({ posts, total, page, limit, pages: Math.ceil(total / limit) })
   } catch (error) {
+    console.error('Blog GET error:', error)
     return NextResponse.json({ error: 'Failed to fetch posts' }, { status: 500 })
   }
 }

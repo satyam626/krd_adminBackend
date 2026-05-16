@@ -51,8 +51,7 @@ export const GET = withAuth(async function(request) {
     const countResult = await query(countSql, params)
     const total = countResult[0].total
     
-    sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?'
-    params.push(limit, offset)
+    sql += ` ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`
     
     const enquiries = await query(sql, params)
     return NextResponse.json({ enquiries, total, page, limit })

@@ -42,8 +42,7 @@ export const GET = withAuth(async function(request) {
     const offset = (page - 1) * limit
     
     const media = await query(
-      'SELECT * FROM media ORDER BY created_at DESC LIMIT ? OFFSET ?',
-      [limit, offset]
+      `SELECT * FROM media ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`
     )
     const [{ total }] = await query('SELECT COUNT(*) as total FROM media')
     

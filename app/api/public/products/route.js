@@ -27,8 +27,7 @@ export async function GET(request) {
     const countResult = await query(countSql, params)
     const total = countResult[0].total
 
-    sql += ' ORDER BY p.sort_order ASC, p.created_at DESC LIMIT ? OFFSET ?'
-    params.push(limit, offset)
+    sql += ` ORDER BY p.sort_order ASC, p.created_at DESC LIMIT ${limit} OFFSET ${offset}`
 
     const products = await query(sql, params)
     return NextResponse.json({ products, total, page, limit, pages: Math.ceil(total / limit) })
