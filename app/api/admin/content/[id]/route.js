@@ -39,8 +39,14 @@ export const PUT = withAuth(async function(request, { params }) {
       
       fields.forEach(f => {
         const val = formData.get(f)
-        if (val !== null) data[f] = val
+        if (val !== null && val !== 'undefined' && val !== 'null') data[f] = val
       })
+
+      // Handle image_url from form if provided as URL string
+      const imageUrlField = formData.get('image_url')
+      if (imageUrlField && imageUrlField !== 'undefined' && imageUrlField !== 'null' && !data.image_url) {
+        data.image_url = imageUrlField
+      }
     } else {
       data = await request.json()
     }
@@ -54,7 +60,7 @@ export const PUT = withAuth(async function(request, { params }) {
       'image_position', 'content_align', 'bg_color', 'sort_order', 'is_active']
     
     allowedFields.forEach(field => {
-      if (data[field] !== undefined) {
+      if (data[field] !== undefined && data[field] !== 'undefined') {
         setClauses.push(`${field} = ?`)
         values.push(data[field])
       }
@@ -67,8 +73,8 @@ export const PUT = withAuth(async function(request, { params }) {
     
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error(error)
-    return NextResponse.json({ error: 'Failed to update' }, { status: 500 })
+    console.error('Content update error:', error)
+    return NextResponse.json({ error: error.message || 'Failed to update' }, { status: 500 })
   }
 })
 
