@@ -34,8 +34,10 @@ export const PUT = withAuth(async function(request, { params }) {
         // Delete old images
         const old = await query('SELECT images, featured_image FROM products WHERE id = ?', [params.id])
         if (old.length) {
-          const oldImages = JSON.parse(old[0].images || '[]')
-          oldImages.forEach(img => deleteFile(img))
+          try {
+            const oldImages = JSON.parse(old[0].images || '[]')
+            if (Array.isArray(oldImages)) oldImages.forEach(img => deleteFile(img))
+          } catch { /* ignore bad JSON */ }
         }
         
         newImageUrls = []
@@ -118,12 +120,16 @@ export const DELETE = withAuth(async function(request, { params }) {
   try {
     const products = await query('SELECT images FROM products WHERE id = ?', [params.id])
     if (products.length) {
-      const images = JSON.parse(products[0].images || '[]')
-      images.forEach(img => deleteFile(img))
+      try {
+        const images = JSON.parse(products[0].images || '[]')
+        if (Array.isArray(images)) images.forEach(img => deleteFile(img))
+      } catch { /* ignore bad JSON */ }
     }
+    await query('DELETE FROM product_category_map WHERE product_id = ?', [params.id])
     await query('DELETE FROM products WHERE id = ?', [params.id])
     return NextResponse.json({ success: true })
   } catch (error) {
+    console.error('Product delete error:', error)
     return NextResponse.json({ error: 'Failed to delete product' }, { status: 500 })
   }
 })
