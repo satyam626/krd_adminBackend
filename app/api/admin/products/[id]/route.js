@@ -24,6 +24,7 @@ export const PUT = withAuth(async function(request, { params }) {
     const contentType = request.headers.get('content-type') || ''
     let data = {}
     let newImageUrls = null
+    let categoryIds = null
     
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData()
@@ -46,39 +47,69 @@ export const PUT = withAuth(async function(request, { params }) {
         }
       }
       
+      // Get category_ids
+      const categoryIdsRaw = formData.get('category_ids') || ''
+      if (categoryIdsRaw) {
+        try { categoryIds = JSON.parse(categoryIdsRaw) } catch { categoryIds = categoryIdsRaw.split(',').filter(Boolean) }
+      }
+      
       const fields = ['category_id', 'name', 'slug', 'short_description', 'description', 
         'price', 'old_price', 'sku', 'stock_quantity', 'weight', 'volume',
         'is_featured', 'is_new', 'is_active', 'sort_order', 'meta_title', 'meta_description']
       
       fields.forEach(f => {
         const val = formData.get(f)
-        if (val !== null) data[f] = val
+        if (val !== null && val !== 'undefined') data[f] = val
       })
     } else {
-      data = await request.json()
+      const body = await request.json()
+      if (body.category_ids) {
+        categoryIds = body.category_ids
+        delete body.category_ids
+      }
+      data = body
     }
     
     if (newImageUrls) {
       data.images = JSON.stringify(newImageUrls)
       data.featured_image = newImageUrls[0] || null
     }
+
+    // Update primary category_id from categoryIds if provided
+    if (categoryIds && categoryIds.length > 0) {
+      data.category_id = categoryIds[0]
+    }
     
     const setClauses = []
     const values = []
     
     Object.entries(data).forEach(([key, val]) => {
-      setClauses.push(`${key} = ?`)
-      values.push(val)
+      if (val !== undefined && val !== 'undefined') {
+        setClauses.push(`${key} = ?`)
+        values.push(val)
+      }
     })
     
-    if (!setClauses.length) return NextResponse.json({ error: 'No data' }, { status: 400 })
-    
-    values.push(params.id)
-    await query(`UPDATE products SET ${setClauses.join(', ')} WHERE id = ?`, values)
+    if (setClauses.length) {
+      values.push(params.id)
+      await query(`UPDATE products SET ${setClauses.join(', ')} WHERE id = ?`, values)
+    }
+
+    // Update category mappings if provided
+    if (categoryIds !== null) {
+      // Remove old mappings
+      await query('DELETE FROM product_category_map WHERE product_id = ?', [params.id])
+      // Insert new mappings
+      for (const catId of categoryIds) {
+        if (catId) {
+          await query('INSERT IGNORE INTO product_category_map (product_id, category_id) VALUES (?, ?)', [params.id, catId])
+        }
+      }
+    }
     
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error(error)
+    console.error('Product update error:', error)
     return NextResponse.json({ error: 'Failed to update product' }, { status: 500 })
   }
 })

@@ -6,7 +6,7 @@ import { Modal, Field, inputCls, textareaCls, selectCls, PageHeader, StatusBadge
 import Link from 'next/link'
 
 const defaultForm = {
-  category_id: '', name: '', slug: '', short_description: '', description: '',
+  category_ids: [], name: '', slug: '', short_description: '', description: '',
   price: '', old_price: '', sku: '', stock_quantity: 0, weight: '', volume: '',
   is_featured: false, is_new: false, is_active: true, sort_order: 0,
   meta_title: '', meta_description: ''
@@ -74,6 +74,7 @@ export default function AdminProductsPage() {
     setEditItem(item)
     setForm({
       ...item,
+      category_ids: item.categories ? item.categories.map(c => String(c.id)) : (item.category_id ? [String(item.category_id)] : []),
       is_featured: item.is_featured === 1 || item.is_featured === true,
       is_new: item.is_new === 1 || item.is_new === true,
       is_active: item.is_active === 1 || item.is_active === true,
@@ -88,7 +89,12 @@ export default function AdminProductsPage() {
     try {
       const fd = new FormData()
       Object.entries(form).forEach(([k, v]) => {
-        if (v !== null && v !== undefined) fd.append(k, typeof v === 'boolean' ? (v ? '1' : '0') : String(v))
+        if (k === 'category_ids') {
+          fd.append('category_ids', JSON.stringify(v))
+          if (v.length > 0) fd.append('category_id', v[0])
+        } else if (v !== null && v !== undefined) {
+          fd.append(k, typeof v === 'boolean' ? (v ? '1' : '0') : String(v))
+        }
       })
       imageFiles.forEach(f => fd.append('images', f))
 
@@ -212,7 +218,7 @@ export default function AdminProductsPage() {
                 </div>
                 <div className="p-3">
                   <p className="text-white text-sm font-medium truncate">{product.name}</p>
-                  <p className="text-gray-500 text-xs mt-0.5">{product.category_name || 'No category'}</p>
+                  <p className="text-gray-500 text-xs mt-0.5">{product.categories?.length > 0 ? product.categories.map(c => c.name).join(', ') : product.category_name || 'No category'}</p>
                   <div className="flex items-center justify-between mt-2">
                     {product.price ? (
                       <div className="flex items-baseline gap-1.5">
@@ -241,7 +247,7 @@ export default function AdminProductsPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-white text-sm font-medium truncate">{product.name}</p>
-                    <p className="text-gray-500 text-xs">{product.category_name || 'No category'} {product.sku && `• ${product.sku}`}</p>
+                    <p className="text-gray-500 text-xs">{product.categories?.length > 0 ? product.categories.map(c => c.name).join(', ') : product.category_name || 'No category'} {product.sku && `• ${product.sku}`}</p>
                   </div>
                   <div className="hidden sm:flex items-center gap-3">
                     {product.is_active === 1 ? <StatusBadge status="active" /> : <StatusBadge status="inactive" />}
@@ -279,11 +285,45 @@ export default function AdminProductsPage() {
             <Field label="Product Name" required>
               <input type="text" value={form.name} onChange={e => setField('name', e.target.value)} placeholder="Product name" className={inputCls} />
             </Field>
-            <Field label="Category">
-              <select value={form.category_id || ''} onChange={e => setField('category_id', e.target.value)} className={selectCls}>
-                <option value="">-- Select Category --</option>
-                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+            <Field label="Categories (select multiple)">
+              <div className="bg-gray-800 border border-gray-700 rounded-lg p-2 max-h-40 overflow-y-auto space-y-1">
+                {categories.length === 0 ? (
+                  <p className="text-gray-500 text-xs p-2">No categories available</p>
+                ) : categories.map(c => {
+                  const isSelected = (form.category_ids || []).includes(String(c.id))
+                  return (
+                    <label key={c.id} className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer transition-colors ${isSelected ? 'bg-blue-600/20 border border-blue-500/30' : 'hover:bg-gray-700/50 border border-transparent'}`}>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => {
+                          const ids = form.category_ids || []
+                          if (isSelected) {
+                            setField('category_ids', ids.filter(id => id !== String(c.id)))
+                          } else {
+                            setField('category_ids', [...ids, String(c.id)])
+                          }
+                        }}
+                        className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-0"
+                      />
+                      <span className={`text-sm ${isSelected ? 'text-white font-medium' : 'text-gray-400'}`}>{c.name}</span>
+                    </label>
+                  )
+                })}
+              </div>
+              {(form.category_ids || []).length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {(form.category_ids || []).map(id => {
+                    const cat = categories.find(c => String(c.id) === id)
+                    return cat ? (
+                      <span key={id} className="inline-flex items-center gap-1 bg-blue-900/40 text-blue-300 text-xs px-2 py-1 rounded-full border border-blue-500/20">
+                        {cat.name}
+                        <button type="button" onClick={() => setField('category_ids', (form.category_ids || []).filter(i => i !== id))} className="text-blue-400 hover:text-white ml-0.5">×</button>
+                      </span>
+                    ) : null
+                  })}
+                </div>
+              )}
             </Field>
           </div>
 
